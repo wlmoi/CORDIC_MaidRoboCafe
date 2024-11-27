@@ -1,14 +1,14 @@
 -- Nama         : William Anthony
 -- NIM          : 13223048
 -- Tanggal      : 23 November 2024
--- Fungsi       : Memperoleh hasil ARC TAN
+-- Fungsi       : Memperoleh hasil TAN
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 -- Top-level Entity
-entity ArcTan is
+entity Tan is
     Port (
         X0      : in STD_LOGIC_VECTOR(9 downto 0); -- Input X awal (10-bit)
         Y0      : in STD_LOGIC_VECTOR(9 downto 0); -- Input Y awal (10-bit)
@@ -16,9 +16,9 @@ entity ArcTan is
         YI      : in STD_LOGIC_VECTOR(9 downto 0); -- Input Y tujuan (10-bit)
         OUTPUT  : out STD_LOGIC_VECTOR(11 downto 0) -- Output 12-bit
     );
-end ArcTan;
+end Tan;
 
-architecture Behavioral of ArcTan is
+architecture Behavioral of Tan is
     -- Internal signals for subtraction
     signal Sub_X : STD_LOGIC_VECTOR(9 downto 0); -- Result of X subtraction (10-bit)
     signal Sub_Y : STD_LOGIC_VECTOR(9 downto 0); -- Result of Y subtraction (10-bit)
