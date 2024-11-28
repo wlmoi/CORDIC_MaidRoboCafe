@@ -37,8 +37,7 @@ for i in range(iterasi) :
     x = new_x
     y = new_y
 
-# print(f'actan cordic = {theta}, nilai asli = {math.degrees(math.atan(b/a))}')
-for i in tabel:
-    print(i)
+print(f'actan cordic = {theta}, nilai asli = {math.degrees(math.atan(b/a))}')
+
 
 
