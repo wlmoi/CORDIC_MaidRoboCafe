@@ -3,8 +3,9 @@
 -- Tanggal      : 16 November 2024
 -- Fungsi       : Testbench untuk ArctanCordic
 
-LIBRARY IEEE;
-USE IEEE.std_logic_1164.ALL;
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 entity tb_ArctanCordic is
 end tb_ArctanCordic;
@@ -12,15 +13,15 @@ end tb_ArctanCordic;
 architecture Behavioral of tb_ArctanCordic is
     component ArctanCordic
         PORT (
-            X_in      : IN signed(11 DOWNTO 0);
-            Y_in      : IN signed(11 DOWNTO 0);
-            Theta_out : OUT signed(17 DOWNTO 0);
+            X_in      : IN signed(15 DOWNTO 0);
+            Y_in      : IN signed(15 DOWNTO 0);
+            Theta_out : OUT signed(15 DOWNTO 0);
             clk       : IN STD_LOGIC
         );
     end component;
 
-    signal X_in, Y_in : signed(11 DOWNTO 0);
-    signal Theta_out : signed(17 DOWNTO 0);
+    signal X_in, Y_in : signed(15 DOWNTO 0);
+    signal Theta_out : signed(15 DOWNTO 0);
     signal clk : STD_LOGIC := '0';
 
     constant clk_period : time := 10 ns;
@@ -50,20 +51,21 @@ begin
     process
     begin
         -- Test case 1: arctan(1)
-        X_in <= to_signed(1, 12);
-        Y_in <= to_signed(1, 12);
+        X_in <= to_signed(1, 16);
+        Y_in <= to_signed(1, 16);
         wait for 200 ns;
 
         -- Test case 2: arctan(0.5)
-        X_in <= to_signed(2, 12);
-        Y_in <= to_signed(1, 12);
+        X_in <= to_signed(2, 16);
+        Y_in <= to_signed(1, 16);
         wait for 200 ns;
 
         -- Test case 3: arctan(-1)
-        X_in <= to_signed(-1, 12);
-        Y_in <= to_signed(1, 12);
+        X_in <= to_signed(-1, 16);
+        Y_in <= to_signed(1, 16);
         wait for 200 ns;
 
         wait;
     end process;
+
 end Behavioral;
