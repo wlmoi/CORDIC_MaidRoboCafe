@@ -22,6 +22,7 @@ architecture Behavioral of Rooter is
     signal Increment : signed(11 DOWNTO 0);               -- Nilai iterasi untuk percobaan (2^i)
     signal TestValue : signed(23 DOWNTO 0);               -- Kuadrat hasil sementara
     signal ShiftedValue : signed(11 DOWNTO 0);            -- Nilai geser untuk menghasilkan increment
+    signal CurrentShiftAmt : integer range 0 to 11 := 0;  -- Nilai shift saat ini
 
     -- Deklarasi komponen
     component Multiplier12bit12bit
@@ -41,29 +42,30 @@ architecture Behavioral of Rooter is
     end component;
 
 begin
+    -- Instansiasi ShiftRegister
+    ShiftRegister_Inst: ShiftRegister
+        PORT MAP (
+            D_in => to_signed(1, 12), -- Masukkan nilai awal 1
+            Shifted => Increment,    -- Keluar sebagai nilai geser
+            shift_amt => CurrentShiftAmt -- Geser sesuai shift_amt
+        );
+
+    -- Instansiasi Multiplier12bit12bit
+    Multiplier_Inst: Multiplier12bit12bit
+        PORT MAP (
+            A => Temp + Increment, -- Nilai sementara ditambah iterasi
+            B => Temp + Increment, -- Nilai sementara ditambah iterasi
+            P => TestValue         -- Hasil perkalian
+        );
+
+    -- Proses utama
     process(InVal)
     begin
         -- Inisialisasi
         Temp <= (OTHERS => '0'); -- Mulai dari nol
 
         -- Iterasi dari bit paling signifikan (MSB) ke bit paling tidak signifikan (LSB)
-        for i in 11 DOWNTO 0 loop
-            -- Menghasilkan nilai iterasi (2^i) menggunakan ShiftRegister
-            ShiftRegister_Inst: ShiftRegister
-                PORT MAP (
-                    D_in => to_signed(1, 12),     -- Masukkan nilai 1
-                    Shifted => Increment,         -- Keluar sebagai nilai geser
-                    shift_amt => i                -- Geser sebanyak i
-                );
-
-            -- Coba tambahkan nilai iterasi ke hasil sementara dan hitung kuadratnya
-            Multiplier_Inst: Multiplier12bit12bit
-                PORT MAP (
-                    A => Temp + Increment,        -- Temp + Increment
-                    B => Temp + Increment,        -- Temp + Increment
-                    P => TestValue                -- Hasil perkalian
-                );
-
+        for CurrentShiftAmt in 11 DOWNTO 0 loop
             -- Periksa apakah kuadrat dari nilai sementara valid
             if TestValue <= InVal then
                 Temp <= Temp + Increment; -- Perbarui hasil jika valid
@@ -73,4 +75,5 @@ begin
         -- Simpan hasil akhir ke output
         Root <= Temp;
     end process;
+
 end Behavioral;
