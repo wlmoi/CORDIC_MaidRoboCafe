@@ -31,7 +31,7 @@ begin
         );
 
     -- Test process
-    process
+    process(A,B,R)
     begin
         -- Test case 1: 100 - 50
         A <= "0001100100"; -- 100
