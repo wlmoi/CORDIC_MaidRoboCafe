@@ -92,7 +92,8 @@ begin
             X_in      => Delta_X_signed,
             Y_in      => Delta_Y_signed,
             Theta_out => dT_angle,
-            clk       => clk
+            clk       => clk,
+            RPolar    => Magnitude_squared
         );
 
     -- State machine process
@@ -131,9 +132,6 @@ begin
                     -- Convert Delta_X and Delta_Y to signed
                     Delta_X_signed <= signed(Delta_X);
                     Delta_Y_signed <= signed(Delta_Y);
-
-                    -- Calculate magnitude squared (Delta_X^2 + Delta_Y^2)
-                    Magnitude_squared <= Delta_X_signed * Delta_X_signed + Delta_Y_signed * Delta_Y_signed;
 
                     state <= OUTPUT;
 
