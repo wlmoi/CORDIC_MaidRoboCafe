@@ -1,4 +1,4 @@
-x = 1/64
+x = 0.001
 
 
 def bit(m) :
@@ -14,8 +14,8 @@ def bit(m) :
             r += '0'
     return r
     
-# for i in range(50) :
-#     print(f"{x:.3f}", bit(x))
-#     x += 0.001
+for i in range(50) :
+    print(f"{x:.3f}", bit(x))
+    x += 0.001
 
-print(f"{x:.3f}", bit(x))
+# print(f"{x:.3f}", bit(x))

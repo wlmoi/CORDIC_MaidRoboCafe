@@ -20,6 +20,8 @@ architecture behavior of uart_rx is
 	signal r_INDEX				:	integer range 0 to 9 := 0		;----Used to select bits from vector		
 	signal r_DATA_BUFFER		:	std_logic_vector(9 downto 0)	;----Data register, needs to be padded with [0] on the beggining and [1] at the end
 	signal s_RECIEVING_FLAG		:	std_logic := '0'				;----Signal holding the current state [ 1 if recieving, 0 if not recieving ]
+	signal x_bcd : std_logic_vector(15 downto 0) := (others => '0');
+	signal y_bcd : std_logic_vector(15 downto 0) := (others => '0');
 		
 	type t_MEM_UART is array ( 0 to 255 ) of std_logic_vector( 7 downto 0 );
 	signal MEM_UART	:	t_MEM_UART;
@@ -127,7 +129,10 @@ architecture behavior of uart_rx is
 		
 		end if; -- rising_edge(i_CLOCK)
 		
-		o_DATA	<=	MEM_UART( to_integer( unsigned ( i_log_ADDR ) ) );
+		-- o_DATA	<=	MEM_UART( to_integer( unsigned ( i_log_ADDR ) ) );
+		x_bcd <= MEM_UART(0)(3 downto 0) & MEM_UART(1)(3 downto 0) & MEM_UART(2)(3 downto 0) & MEM_UART(3)(3 downto 0) ;
+		y_bcd  <= MEM_UART(5)(3 downto 0) & MEM_UART(6)(3 downto 0) & MEM_UART(7)(3 downto 0) & MEM_UART(8)(3 downto 0) ;
+		
 	end process;
 
 end behavior;
