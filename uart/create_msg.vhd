@@ -138,7 +138,7 @@ begin
                     msg(189 downto 180) <= "1001100000";
                 end if;
 
-                next_state <= "0111";
+                next_state <= "1111";
             
             when "0111" => -- done
                 create_done <= '1';

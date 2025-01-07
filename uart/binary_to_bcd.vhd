@@ -4,11 +4,11 @@ USE IEEE.NUMERIC_STD.ALL;
 
 ENTITY binary_to_bcd IS
     PORT(
-        i_DATA		:	IN UNSIGNED(10 DOWNTO 0);
-        i_CLK		:	IN STD_LOGIC;
-        i_RST		:	IN STD_LOGIC;
+        i_DATA		    :	IN UNSIGNED(10 DOWNTO 0);
+        i_CLK		    :	IN STD_LOGIC;
+        i_start		    :	IN STD_LOGIC;
         convert_done    :	OUT STD_LOGIC := '0';
-        o_bcd		:	OUT UNSIGNED(15 DOWNTO 0)
+        o_bcd		    :	OUT UNSIGNED(15 DOWNTO 0)
     );
 END binary_to_bcd;
 
@@ -16,21 +16,25 @@ ARCHITECTURE behavioral OF binary_to_bcd IS
     SIGNAL BCD : UNSIGNED(15 DOWNTO 0) := (OTHERS => '0');
     SIGNAL biner : UNSIGNED(10 DOWNTO 0) := (OTHERS => '0');
     SIGNAL counter : integer := 0;
+    SIGNAL running : std_logic := '0';
 
     BEGIN
-    PROCESS(i_CLK)
+    PROCESS(i_CLK, i_start, i_DATA)
     BEGIN
     
 
     if rising_edge(i_CLK) THEN
-        
-        if i_RST = '1' then
+        if i_start = '1' then
             counter <= 0;
             BCD <= (OTHERS => '0');
             biner <= (OTHERS => '0');
+            running <= '1';
             convert_done <= '0';
+        end if;
+        
+        
 
-        elsif counter < 12 and counter > 0 then
+        if counter < 12 and counter > 0 and running = '1' then
             counter <= counter + 1;
             BCD <= BCD(14 DOWNTO 0) & biner(10);
             biner <= biner(9 DOWNTO 0) & '0';
@@ -46,11 +50,13 @@ ARCHITECTURE behavioral OF binary_to_bcd IS
                 BCD(12 downto 9) <= BCD(11 downto 8) + 3;
             end if;
         
-        elsif counter = 0 then
+        elsif counter = 0 and running = '1' then
+            -- convert_done <= '0';
             counter <= counter + 1;
             biner <= i_DATA;   
-        else
+        elsif running = '1' then
             convert_done <= '1';
+            running <= '0';
         end if;        
         
     end if;
