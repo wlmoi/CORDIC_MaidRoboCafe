@@ -5,12 +5,16 @@ use ieee.numeric_std.all;
 entity create_msg is
     port (
         clk : in std_logic;
-        dT : in unsigned(17 downto 0); -- 110000001110101001 -53,425
         i_start : IN STD_LOGIC;
-        R : in unsigned(11 downto 0); -- 001011010111 363,5
         create_done : out std_logic := '0';
         reset : in std_logic;
-        msg : out std_logic_vector(189 downto 0)
+        dT_min : in std_logic;
+        dT1_bcd : in  unsigned(11 downto 0) := (others => '0');
+	    dT2_bcd : in  unsigned(11 downto 0) := (others => '0');
+	    R_bcd : in unsigned(15 downto 0) := (others => '0');
+        R2_bcd : in  unsigned(11 downto 0) := (others => '0');
+
+        msg : out std_logic_vector(209 downto 0)
 
     );
 end create_msg;
@@ -19,29 +23,20 @@ architecture behavioral of create_msg is
 
     signal state : std_logic_vector(3 downto 0) := "1111";
     signal next_state : std_logic_vector(3 downto 0) := "1111";
-    signal convert_done : std_logic := '0';
     signal data_biner : unsigned(10 downto 0) := (others => '0');
     signal data_bcd : unsigned(15 downto 0) := (others => '0');
-    signal i_RST : std_logic := '0';
-    
-    component binary_to_bcd is
-        port(
-            i_DATA : IN UNSIGNED(10 DOWNTO 0);
-            i_CLK : IN STD_LOGIC;
-            i_RST		:	IN STD_LOGIC;
-            convert_done : OUT STD_LOGIC := '0';
-            o_bcd : OUT UNSIGNED(15 DOWNTO 0)
-        );
-    end component;
+    -- signal i_RST : std_logic := '0';
+
+    -- force -freeze sim:/create_msg/clk 1 0, 0 {25 ps} -r 50
+    -- force -freeze sim:/create_msg/i_start 1 0
+    -- force -freeze sim:/create_msg/reset 0 0, 1 {7000 ps} -r 14000
+    -- force -freeze sim:/create_msg/dT_min 1 0
+    -- force -freeze sim:/create_msg/dT1_bcd 000100100011 0
+    -- force -freeze sim:/create_msg/dT2_bcd 010001010110 0
+    -- force -freeze sim:/create_msg/R_bcd 1001100001111000 0
+    -- force -freeze sim:/create_msg/R_koma 1 0
     
 begin
-
-    u_msg_t1 : binary_to_bcd port map(
-        i_DATA => (data_biner),
-        i_CLK => clk,
-        i_RST => i_RST,
-        convert_done => convert_done,
-        o_bcd => data_bcd);
 
     process(clk)
     begin
@@ -52,7 +47,7 @@ begin
         end if;
     end process;
     
-    process(state, dT, R, convert_done, i_start)
+    process(state, i_start, dT_min, dT1_bcd, dT2_bcd, R_bcd,R2_bcd, reset)
     begin
         case state is
             when "1111" =>-- idle
@@ -67,9 +62,9 @@ begin
                 msg(29 downto 0) <= "100111010010101010001011001000";
                 next_state <= "0001";
             when "0001" => -- pengisian tanda - dt
-                i_rst <= '1';
+                -- i_rst <= '1';
     
-                if dT(17) = '1' then
+                if dT_min = '1' then
                     msg(39 downto 30) <= "1001011010";
                     
                 else 
@@ -79,73 +74,53 @@ begin
                 next_state <= "0010";
 
             when "0010" =>  -- pengisian angka di depan koma dT
-                i_rst <= '0';
-                data_biner <= "000" & dT(16 downto 9);
-                -- data_biner <= "00010000001";
-                
-                msg(69 downto 40) <= "10011" & std_logic_vector(data_bcd(3 downto 0)) & '0' 
-                                    & "10011" & std_logic_vector(data_bcd(7 downto 4) & '0') 
-                                    & "10011" & std_logic_vector(data_bcd(11 downto 8)) & '0';
-                if convert_done = '0' then
-                    next_state <= "0010";
-                else 
-                    next_state <= "0011";
-                    i_rst <= '1';
-        
-                end if;
+
+                msg(69 downto 40) <= "10011" & std_logic_vector(dT1_bcd(3 downto 0)) & '0' 
+                                    & "10011" & std_logic_vector(dT1_bcd(7 downto 4)) & '0' 
+                                    & "10011" & std_logic_vector(dT1_bcd(11 downto 8)) & '0';
+
+
+                -- msg(69 downto 40) <= "10011" & "0011"& '0' 
+                --                     & "10011" & "0011" & '0' 
+                --                     & "10011" & "0011" & '0';
+
+                next_state <= "0011";
+
 
             when "0011" => -- pengisian angka di belakang koma dT
-                i_rst <= '0';
-                data_biner <= "00" & dT(8 downto 0);
-                msg(109 downto 70) <=  "10011" & std_logic_vector(data_bcd(3 downto 0) & '0')  
-                                        & "10011" & std_logic_vector(data_bcd(7 downto 4)) & '0' 
-                                        & "10011" & std_logic_vector(data_bcd(11 downto 8) & '0')  & "1001011000"; 
-                if convert_done = '0' then
-                    next_state <= "0011";
-                else 
-                    next_state <= "0100";
-                    i_rst <= '1';
-        
+                msg(109 downto 70) <=  "10011" & std_logic_vector(dT2_bcd(3 downto 0) & '0')  
+                                        & "10011" & std_logic_vector(dT2_bcd(7 downto 4)) & '0' 
+                                        & "10011" & std_logic_vector(dT2_bcd(11 downto 8) & '0')  
+                                        & "1001011000"; 
 
-                end if;
+                next_state <= "0100";
+
 
             when "0100" => -- pengisian R:
                 msg(129 downto 110) <= "10011101001010100100";
                 next_state <= "0101";
             
-            when "0101" => -- pengisian isi R
-                i_rst <= '0';
-                data_biner <= R(11 downto 1);
-                msg(169 downto 130) <= "10011" & std_logic_vector(data_bcd(3 downto 0) & '0') & 
-                "10011" & std_logic_vector(data_bcd(7 downto 4) & '0') & 
-                "10011" & std_logic_vector(data_bcd(11 downto 8) & '0') & 
-                "10011" & std_logic_vector(data_bcd(15 downto 12) & '0') ;
+            when "0101" =>
+            
+                msg(169 downto 130) <= "10011" & std_logic_vector(R_bcd(3 downto 0) & '0') & 
+                "10011" & std_logic_vector(R_bcd(7 downto 4) & '0') & 
+                "10011" & std_logic_vector(R_bcd(11 downto 8) & '0') & 
+                "10011" & std_logic_vector(R_bcd(15 downto 12) & '0') ;
 
-                if convert_done = '0' then
-                    next_state <= "0101";
-                else 
-                    next_state <= "0110";
-                    i_rst <= '1';
-        
-                end if;
+
+                next_state <= "0110";
             
             when "0110" => -- pengisian koma seetelah R
-                msg(179 downto 170) <=   "1001011000";
+                msg(209 downto 170) <=   
+                                        "10011" & std_logic_vector(R2_bcd(3 downto 0) & '0') & 
+                                        "10011" & std_logic_vector(R2_bcd(7 downto 4) & '0') & 
+                                        "10011" & std_logic_vector(R2_bcd(11 downto 8) & '0') &
+                                        "1001011000";
                 
-                if R(0) = '1' then
-                    msg(189 downto 180) <= "1001101010";
-                else 
-                    msg(189 downto 180) <= "1001100000";
-                end if;
-
+                
+                create_done <= '1';
                 next_state <= "1111";
             
-            when "0111" => -- done
-                create_done <= '1';
-                if reset = '1' then
-                    next_state <= "1111";
-                    msg <= (others => '0');
-                end if;
 
             when others =>
                 next_state <= "1111";

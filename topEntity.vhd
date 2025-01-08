@@ -7,7 +7,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity uart is
+entity topentity is
 	port (
 		i_CLOCK     : in std_logic;
 		i_DISPLAY   : in std_logic;  -- Sinyal "tampilkan data", berasal dari komponen lain
@@ -23,11 +23,11 @@ entity uart is
 		led             : out std_logic_vector(3 downto 0);
 		hex1            : out std_logic_vector(6 downto 0)  -- Sinyal HEX (7 Segmen).
 	);
-end uart;
+end topentity;
 
-architecture behavior of uart is
+architecture behavior of topentity is
 	-- SINYAL
-	signal r_TX_DATA    : std_logic_vector(189 downto 0) := (others => '1');  -- Register yang menyimpan pesan untuk dikirim
+	signal r_TX_DATA    : std_logic_vector(209 downto 0) := (others => '1');  -- Register yang menyimpan pesan untuk dikirim
 	signal s_TX_START   : std_logic := '0';  -- Sinyal yang disimpan untuk memulai transmisi
 	signal s_TX_BUSY    : std_logic;  -- Sinyal yang disimpan yang mengingatkan komponen utama bahwa sub komponennya "TX" sedang sibuk
 	signal s_rx_data    : std_logic_vector(7 downto 0);  -- Data RX yang dibaca dari Buffer RX
@@ -44,16 +44,16 @@ architecture behavior of uart is
 	signal X0           : std_logic_vector(9 downto 0) := (others => '0');
 	signal Y0           : std_logic_vector(9 downto 0) := (others => '0');
 	signal cordic_done  : std_logic := '0';
-	signal dT           : unsigned(18 downto 0);
-	signal R            : unsigned(11 downto 0);
-	signal msg          : std_logic_vector(189 downto 0);
-	signal msg_ready 	: std_logic_vector(189 downto 0);
+	signal dT           : unsigned(23 downto 0);
+	signal R            : unsigned(25 downto 0);
+	signal msg          : std_logic_vector(209 downto 0);
 	signal create_done  : std_logic := '0';
 	signal i_start_msg  : std_logic := '0';
 	signal rst_msg 	: std_logic := '0';
 	signal hex_bcd : std_logic_vector (7 downto 0) := (others => '0');
 
 	signal convert_bcd_r_done : std_logic := '0';
+	signal convert_bcd_r2_done : std_logic := '0';
 	signal convert_bcd_dt1_done : std_logic := '0';
 	signal convert_bcd_dt2_done : std_logic := '0';
     signal data_biner : unsigned(10 downto 0) := (others => '0');
@@ -63,6 +63,7 @@ architecture behavior of uart is
 	signal dT1_bcd : unsigned(15 downto 0) := (others => '0');
 	signal dT2_bcd : unsigned(15 downto 0) := (others => '0');
 	signal R_bcd : unsigned(15 downto 0) := (others => '0');
+	signal R2_bcd : unsigned(15 downto 0) := (others => '0');
 
 	signal dt_min : std_logic := '0';
 	signal r_koma : std_logic := '0';
@@ -70,17 +71,39 @@ architecture behavior of uart is
 	signal start_fix : std_logic := '0';
 	signal fix_done : std_logic := '0';
 	signal dt_fix : unsigned(9 downto 0) := (others => '0');
+	signal r_fix : unsigned(9 downto 0) := (others => '0');
 	
 	SIGNAL START_BCD : STD_LOGIC := '0';
 
+	SIGNAL CORDIC_ON : STD_LOGIC := '0';
+
 	-- KOMPONENT
+
+	-- cordic
+	component cordic is
+		port(
+			clk             : IN  std_logic;
+			reset           : IN  std_logic;
+			cordic_on       : IN  std_logic;
+			x_in            : IN  SIGNED(10 DOWNTO 0);
+			y_in            : IN  SIGNED(10 DOWNTO 0);
+			z               : OUT std_logic;
+			r_cordic        : OUT SIGNED(29 DOWNTO 0) ; -- 15 bit di belakang koma
+			p_cordic        : OUT SIGNED(16 DOWNTO 0) := (OTHERS => '0'); -- 7 bit di depan koma, 10 bit di belakang koma
+			x_out           : OUT SIGNED(13 DOWNTO 0);
+			y_out           : OUT SIGNED(13 DOWNTO 0)
+		);
+	end component;
+
+
+
 	component uart_tx is
 		port (
 			i_CLOCK : in std_logic;
 			i_START : in std_logic;
 			o_BUSY  : out std_logic;
 			tx_done : out std_logic;
-			i_DATA  : in std_logic_vector(189 downto 0);
+			i_DATA  : in std_logic_vector(209 downto 0);
 			o_TX_LINE : out std_logic := '1'
 		);
 	end component;
@@ -104,18 +127,6 @@ architecture behavior of uart is
 		);
 	end component;
 
-	component cordic is
-		port (
-			x_in      : in std_logic_vector(9 downto 0);
-			y_in      : in std_logic_vector(9 downto 0);
-			cordic_on : in std_logic;
-			z         : out std_logic;
-			dT        : out unsigned(18 downto 0);
-			r_cordic  : out unsigned(11 downto 0);
-			clk       : in std_logic
-		);
-	end component;
-
 	component create_msg is
 		port (
 			clk         : in std_logic;
@@ -123,11 +134,11 @@ architecture behavior of uart is
 			create_done : out std_logic := '0';
 			reset       : in std_logic;
 			dT_min      : in std_logic;
-			R_koma      : in std_logic;
+			R2_bcd      : in  unsigned(11 downto 0) := (others => '0');
 			dT1_bcd : in  unsigned(11 downto 0) := (others => '0');
 	    	dT2_bcd : in  unsigned(11 downto 0) := (others => '0');
 	    	R_bcd : in unsigned(15 downto 0) := (others => '0');
-			msg         : out std_logic_vector(189 downto 0)
+			msg         : out std_logic_vector(209 downto 0)
 		);
 	end component;
 
@@ -141,23 +152,19 @@ architecture behavior of uart is
         );
     end component;
 
-
-	component fixtobinary is
-		PORT(
-        clk : IN STD_LOGIC;
-        FIX : IN UNSIGNED(9 DOWNTO 0); 
-        start : IN STD_LOGIC;
-        DONE : OUT STD_LOGIC;
-        A_OUT : OUT UNSIGNED(9 DOWNTO 0) := (OTHERS => '0')
+	component fixConverter is
+		port(
+        i_fix : in unsigned(14 downto 0);
+        A_out : out unsigned(9 downto 0)
     );
 	end component;
 
 begin
 	lampu(3) <= create_done;
 	lampu(2 downto 0) <= state(2 downto 0);
-	dT <= "1101100110111010010";
+	dT <= "110110011001000011100101";
 	-- "1101100110111010010";
-	R  <= "001011100011";
+	R  <= "10011010101001011101101100";
 	dt_min <= dT(18);
 	r_koma <= R(0);
 
@@ -167,6 +174,19 @@ begin
 	-- hex_bcd <= "0011" & std_lodT1_bcd(3 downto 0);
 
 	
+	-- u_cordic : cordic port map(
+	-- 	clk => i_CLOCK,
+	-- 	reset  => i_rst,
+	-- 	cordic_on  => cordic_on,
+	-- 	x_in     => to_signed(to_integer(unsigned(X1)), 11),
+	-- 	y_in            => to_signed(to_integer(unsigned(Y1)), 11),
+	-- 	z               => CORDIC_DONE,
+	-- 	r_cordic        => to_unsigned(to_integer(R)), -- 15 bit di belakang koma
+	-- 	p_cordic        => dT, -- 7 bit di depan koma, 10 bit di belakang koma
+	-- 	x_out           => x_out,
+	-- 	y_out           => y_out
+	-- );
+
 
 	-- Modul Penerima
 	u_RX : uart_rx port map (
@@ -195,11 +215,11 @@ begin
 		dT1_bcd     => dt1_bcd(11 downto 0),
 		dT2_bcd     => dT2_bcd(11 downto 0),	
 		R_bcd       => R_bcd,
+		R2_bcd      => r2_bcd(11 downto 0),
 		-- dT1_bcd     => "001101000101",
 		-- dT2_bcd     => "011001111000",	
 		-- R_bcd       => "0100011100100011",
 		dt_min      => dt_min,
-		R_koma      => r_koma,
 		create_done => create_done,
 		msg         => msg
 	);
@@ -231,32 +251,41 @@ begin
         convert_done => convert_bcd_dt2_done,
         o_bcd => dT2_bcd);
 
-	u_msg_r : binary_to_bcd port map(
-        i_DATA => R(11 downto 1),
+	u_msg_r1 : binary_to_bcd port map(
+        i_DATA => R(25 downto 15),
         i_CLK => i_clock,
         i_start => START_BCD,
         convert_done => convert_bcd_r_done,
         o_bcd => R_bcd);
+	
+	u_msg_r2 : binary_to_bcd port map(
+			i_DATA => '0' & r_fix,
+			i_CLK => i_clock,
+			i_start => START_BCD,
+			convert_done => convert_bcd_r2_done,
+			o_bcd => R2_bcd);
 
-	u_fixtobinary : fixtobinary port map(
-		clk => i_CLOCK,
-		FIX => dT(9 downto 0),
-		start => start_fix,
-		DONE => fix_done,
-		A_OUT => dt_fix
+	u_fix_dt_converter :  fixConverter port map(
+		i_fix => dT(14 downto 0),
+		A_out => dt_fix
+	);
+
+	u_fix_r_converter :  fixConverter port map(
+		i_fix => R(14 downto 0),
+		A_out => r_fix
 	);
 	
 
 
-	u_cordic : cordic port map(
-	 x_in => X1,
-	 y_in => Y1,
-	 clk => i_CLOCK,
-	 cordic_on => i_calc,
-	 z => cordic_done,
-	 dT => dT,
-	 r_cordic => R
-	);
+	-- u_cordic : cordic port map(
+	--  x_in => X1,
+	--  y_in => Y1,
+	--  clk => i_CLOCK,
+	--  cordic_on => i_calc,
+	--  z => cordic_done,
+	--  dT => dT,
+	--  r_cordic => R
+	-- );
 
 	-- Modul Konverter ASCII ke HEX (7 Segmen)
 	a2h : asciiHex port map (
@@ -302,30 +331,21 @@ begin
 			case state is
 				when "0001" =>  -- idle
 					i_start_msg <= '0';
-					start_fix <= '1';
-					-- rst_msg <= '1';
 					if (i_display = '0') then
-						start_fix <= '0';
-						-- state <= "0010";
 						state <= "0010";
 						rst_msg <= '1';
 						
 					end if;
 
 				when "0010" =>
-				    -- rst_msg <= '0';
-					
-					
-					if fix_done = '1' then
-						start_bcd <= '1';
-						state <= "0011";
-						rst_msg <= '0';
-					end if;
+					start_bcd <= '1';
+					state <= "0011";
+					rst_msg <= '0';
 				
 				when "0011" =>
 					rst_msg <= '0';
 					start_bcd <= '0';
-				    if convert_bcd_dt1_done = '1' and convert_bcd_dt2_done = '1' and convert_bcd_r_done = '1'then 
+				    if convert_bcd_dt1_done = '1' and convert_bcd_dt2_done = '1' and convert_bcd_r_done = '1' and convert_bcd_r2_done = '1' then 
 						i_start_msg <= '1';
 					
 				        state <= "0101";
@@ -358,7 +378,6 @@ begin
 					if create_done = '1' then
 						state <= "0110";
 						i_start_msg <= '0';
-						-- msg_ready <= msg;
 					else
 						state <= "0101";
 					end if;
